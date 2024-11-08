@@ -1,0 +1,29 @@
+(ns delivery-system.core)
+
+;; Define cities with initial values, capacities, and requirements
+(def cities
+  [{:name "Munich" :initial 500 :min-capacity 100 :max-capacity 500 :truck-count 2}
+   {:name "Napoli" :initial 20 :min-capacity 70 :max-capacity 100 :truck-count 0}
+   {:name "Innsbruck" :initial 50 :min-capacity 60 :max-capacity 150 :truck-count 0}
+   {:name "Krakov" :initial 0 :min-capacity 80 :max-capacity 100 :truck-count 0}
+   {:name "Hamburg" :initial 10 :min-capacity 20 :max-capacity 50 :truck-count 0}])
+
+(def truck-capacity 100)
+
+;; Helper functions to determine inventory status
+(defn needs-inventory? [city]
+  (< (:initial city) (:min-capacity city)))
+
+(defn surplus-inventory? [city]
+  (> (:initial city) (:min-capacity city)))
+
+;; Find cities needing inventory and those with a surplus
+(defn find-cities-with-needs []
+  (let [needs (filter needs-inventory? cities)]
+    (println "Cities that need inventory:" needs)
+    needs))
+
+(defn find-cities-with-surplus []
+  (let [surplus (filter surplus-inventory? cities)]
+    (println "Cities with surplus inventory:" surplus)
+    surplus))
