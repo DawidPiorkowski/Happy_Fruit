@@ -27,3 +27,12 @@
   (let [surplus (filter surplus-inventory? cities)]
     (println "Cities with surplus inventory:" surplus)
     surplus))
+
+
+;; Plan routes from surplus cities to cities with needs
+
+
+;; Display planned routes
+
+
+;; Main function to run the program
