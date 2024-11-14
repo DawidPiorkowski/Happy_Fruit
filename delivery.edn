@@ -1,38 +1,68 @@
-(ns delivery-system.core)
+(ns happy-fruit.core)
 
-;; Define cities with initial values, capacities, and requirements
+;; Cities Data
 (def cities
-  [{:name "Munich" :initial 500 :min-capacity 100 :max-capacity 500 :truck-count 2}
-   {:name "Napoli" :initial 20 :min-capacity 70 :max-capacity 100 :truck-count 0}
-   {:name "Innsbruck" :initial 50 :min-capacity 60 :max-capacity 150 :truck-count 0}
-   {:name "Krakov" :initial 0 :min-capacity 80 :max-capacity 100 :truck-count 0}
-   {:name "Hamburg" :initial 10 :min-capacity 20 :max-capacity 50 :truck-count 0}])
+  [{:name "Munich" :initial 500 :min-capacity 100 :max-capacity 500 :current-stock 500}
+   {:name "Napoli" :initial 20 :min-capacity 70 :max-capacity 100 :current-stock 20}
+   {:name "Innsbruck" :initial 50 :min-capacity 60 :max-capacity 150 :current-stock 50}
+   {:name "Krakov" :initial 0 :min-capacity 80 :max-capacity 100 :current-stock 0}
+   {:name "Hamburg" :initial 10 :min-capacity 20 :max-capacity 50 :current-stock 10}])
 
+;; Truck Properties
 (def truck-capacity 100)
+(def truck-count 2)
 
-;; Helper functions to determine inventory status
-(defn needs-inventory? [city]
-  (< (:initial city) (:min-capacity city)))
+;; Function to find cities that need supply
+(defn cities-need-supply [cities]
+  (filter #(> (:min-capacity %) (:current-stock %)) cities))
 
-(defn surplus-inventory? [city]
-  (> (:initial city) (:min-capacity city)))
+;; Function to find cities that have extra supply
+(defn cities-with-excess [cities]
+  (filter #(> (:current-stock %) (:min-capacity %)) cities))
 
-;; Find cities needing inventory and those with a surplus
-(defn find-cities-with-needs []
-  (let [needs (filter needs-inventory? cities)]
-    (println "Cities that need inventory:" needs)
-    needs))
+;; Function to transport cans from source to destination with driver confirmation
+(defn transport-cans [source dest amount]
+  (let [actual-amount (min amount (- (:max-capacity dest) (:current-stock dest)))]
+    ;; Driver confirmation message
+    (println "Driver confirmation: Delivering" actual-amount "cans from" (:name source) "to" (:name dest))
+    [(assoc source :current-stock (- (:current-stock source) actual-amount))
+     (assoc dest :current-stock (+ (:current-stock dest) actual-amount))]))
 
-(defn find-cities-with-surplus []
-  (let [surplus (filter surplus-inventory? cities)]
-    (println "Cities with surplus inventory:" surplus)
-    surplus))
+;; Simulate one truck trip to rebalance stocks
+(defn move-truck [cities]
+  (let [needs-supply (cities-need-supply cities)
+        has-excess (cities-with-excess cities)]
+    (if (and (seq needs-supply) (seq has-excess))
+      (let [source (first has-excess)
+            dest (first needs-supply)
+            [updated-source updated-dest] (transport-cans source dest truck-capacity)]
+        (map #(cond
+                (= (:name %) (:name source)) updated-source
+                (= (:name %) (:name dest)) updated-dest
+                :else %) cities))
+      cities)))
 
+;; Function to run the simulation for a number of truck trips and print stock levels after each trip
+(defn truck-trips [cities trips]
+  (loop [current-cities cities
+         remaining-trips trips
+         trip-number 1]
+    (if (zero? remaining-trips)
+      current-cities
+      (let [updated-cities (move-truck current-cities)]
+        ;; Print stock levels after each trip
+        (println "\nStock levels after trip" trip-number ":")
+        (doseq [city updated-cities]
+          (println (:name city) "- Stock:" (:current-stock city)))
+        (recur updated-cities (dec remaining-trips) (inc trip-number))))))
 
-;; Plan routes from surplus cities to cities with needs
+;; Running the simulation
+(defn -main []
+  (let [trips 5
+        final-cities (truck-trips cities trips)]
+    (println "\nFinal city stocks after" trips "truck trips:")
+    (doseq [city final-cities]
+      (println (:name city) "- Stock:" (:current-stock city)))))
 
-
-;; Display planned routes
-
-
-;; Main function to run the program
+;; Ensure the main function is called when running in an online compiler
+(-main)
