@@ -13,7 +13,7 @@
 (def truck-count 2)
 
 ;; Function to find cities that need supply
-(defn cities-need-supply [cities]
+(defn cities-needing-supply [cities]
   (filter #(> (:min-capacity %) (:current-stock %)) cities))
 
 ;; Function to find cities that have extra supply
@@ -21,21 +21,21 @@
   (filter #(> (:current-stock %) (:min-capacity %)) cities))
 
 ;; Function to transport cans from source to destination with driver confirmation
-(defn transport-cans [source dest amount]
+(defn transport-cans [source dest amount truck-id]
   (let [actual-amount (min amount (- (:max-capacity dest) (:current-stock dest)))]
-    ;; Driver confirmation message
-    (println "Driver confirmation: Delivering" actual-amount "cans from" (:name source) "to" (:name dest))
+    ;; Driver confirmation message with which truck it is 
+    (println "Truck" truck-id "confirmation: Delivering" actual-amount "cans from" (:name source) "to" (:name dest))
     [(assoc source :current-stock (- (:current-stock source) actual-amount))
      (assoc dest :current-stock (+ (:current-stock dest) actual-amount))]))
 
-;; Simulate one truck trip to rebalance stocks
-(defn move-truck [cities]
-  (let [needs-supply (cities-need-supply cities)
+;; Simulate one truck trip to rebalance stocks with changing trucks 
+(defn move-truck [cities truck-id]
+  (let [needs-supply (cities-needing-supply cities)
         has-excess (cities-with-excess cities)]
     (if (and (seq needs-supply) (seq has-excess))
       (let [source (first has-excess)
             dest (first needs-supply)
-            [updated-source updated-dest] (transport-cans source dest truck-capacity)]
+            [updated-source updated-dest] (transport-cans source dest truck-capacity truck-id)]
         (map #(cond
                 (= (:name %) (:name source)) updated-source
                 (= (:name %) (:name dest)) updated-dest
@@ -43,22 +43,24 @@
       cities)))
 
 ;; Function to run the simulation for a number of truck trips and print stock levels after each trip
-(defn truck-trips [cities trips]
+(defn truck-trips  [cities trips]
   (loop [current-cities cities
          remaining-trips trips
-         trip-number 1]
+         trip-number 1
+         truck-id 1]
     (if (zero? remaining-trips)
       current-cities
-      (let [updated-cities (move-truck current-cities)]
+      (let [updated-cities (move-truck current-cities truck-id)
+            next-truck-id (if (= truck-id 1) 2 1)] ;; Alternate truck ID between 1 and 2
         ;; Print stock levels after each trip
         (println "\nStock levels after trip" trip-number ":")
         (doseq [city updated-cities]
           (println (:name city) "- Stock:" (:current-stock city)))
-        (recur updated-cities (dec remaining-trips) (inc trip-number))))))
+        (recur updated-cities (dec remaining-trips) (inc trip-number) next-truck-id)))))
 
 ;; Running the simulation
 (defn -main []
-  (let [trips 5
+  (let [trips 4
         final-cities (truck-trips cities trips)]
     (println "\nFinal city stocks after" trips "truck trips:")
     (doseq [city final-cities]
