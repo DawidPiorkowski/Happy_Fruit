@@ -1,27 +1,44 @@
 (ns happy-fruit.core)
 
-;; Cities Data
+;; Define List of Cities with their Corresponding Dara
 (def cities
+" A vector of maps which contain the cities and their stock and capacity properites "
   [{:name "Munich" :initial 500 :min-capacity 100 :max-capacity 500 :current-stock 500}
    {:name "Napoli" :initial 20 :min-capacity 70 :max-capacity 100 :current-stock 20}
    {:name "Innsbruck" :initial 50 :min-capacity 60 :max-capacity 150 :current-stock 50}
    {:name "Krakov" :initial 0 :min-capacity 80 :max-capacity 100 :current-stock 0}
    {:name "Hamburg" :initial 10 :min-capacity 20 :max-capacity 50 :current-stock 10}])
 
-;; Truck Properties
-(def truck-capacity 100)
-(def truck-count 2)
+;; Define Truck Properties
+(def truck-capacity 
+    "The capacity of each truck in cans."
+  100)
+(def truck-count
+    "The number of available trucks."
+  2)
 
-;; Function to find cities that need supply
-(defn cities-needing-supply [cities]
+;; Function to identify cities that need supply
+(defn cities-needing-supply
+    "Returns a list of cities that have current stock below their minimum capacity."
+  [cities]
   (filter #(> (:min-capacity %) (:current-stock %)) cities))
 
 ;; Function to find cities that have extra supply
-(defn cities-with-excess [cities]
+(defn cities-with-excess
+    "Returns a list of cities that have current stock above their minimum capacity."
+  [cities]
   (filter #(> (:current-stock %) (:min-capacity %)) cities))
 
 ;; Function to transport cans from source to destination with driver confirmation
-(defn transport-cans [source dest amount truck-id]
+(defn transport-cans
+    "Transports a specified amount of cans from a source city to a destination city, limited by the destination's capacity.
+  - `source`: Source city map
+  - `dest`: Destination city map
+  - `amount`: Amount of cans to transport
+  - `truck-id`: The ID of the truck used for the transport
+  Returns updated source and destination city maps."
+
+  [source dest amount truck-id]
   (let [actual-amount (min amount (- (:max-capacity dest) (:current-stock dest)))]
     ;; Driver confirmation message with which truck it is 
     (println "Truck" truck-id "confirmation: Delivering" actual-amount "cans from" (:name source) "to" (:name dest))
