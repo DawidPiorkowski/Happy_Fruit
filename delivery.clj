@@ -1,74 +1,130 @@
-(ns happy-fruit.core)
+(ns happy-fruit.routes)
 
-;; Define List of Cities with their Corresponding data 
+;; Define List of Cities with their Corresponding data
 (def cities
   [{:name "Munich" :initial 500 :min-capacity 100 :max-capacity 500 :current-stock 500}
-   {:name "Napoli" :initial 20 :min-capacity 70 :max-capacity 100 :current-stock 0}
-   {:name "Innsbruck" :initial 50 :min-capacity 60 :max-capacity 150 :current-stock 10}
-   {:name "Krakov" :initial 0 :min-capacity 80 :max-capacity 100 :current-stock 30}
-   {:name "Hamburg" :initial 10 :min-capacity 20 :max-capacity 50 :current-stock 0}])
+   {:name "Napoli" :initial 0 :min-capacity 70 :max-capacity 100 :current-stock 0}
+   {:name "Innsbruck" :initial 50 :min-capacity 60 :max-capacity 150 :current-stock 50}
+   {:name "Krakov" :initial 0 :min-capacity 80 :max-capacity 100 :current-stock 0}
+   {:name "Hamburg" :initial 0 :min-capacity 20 :max-capacity 50 :current-stock 0}])
 
-;; Define Truck Properties
-(def truck-capacity 100)
-(def truck-count 2)
+;; Define distances between cities
+(def distances
+  {"Munich-Napoli" 800
+   "Munich-Hamburg" 600
+   "Munich-Innsbruck" 200
+   "Munich-Krakov" 500
+   "Napoli-Hamburg" 1000
+   "Napoli-Innsbruck" 1000
+   "Napoli-Krakov" 1200
+   "Hamburg-Innsbruck" 800
+   "Hamburg-Krakov" 700
+   "Innsbruck-Krakov" 400})
 
-;; Function to identify cities that need supply
-(defn cities-needing-supply [cities]
-  (filter #(> (:min-capacity %) (:current-stock %)) cities))
+;; Function to calculate distance between cities
+(defn get-distance [city1 city2]
+  (let [key (str city1 "-" city2)
+        rev-key (str city2 "-" city1)]
+    (or (distances key) (distances rev-key) 0)))
 
-;; Function to find cities that have extra supply
-(defn cities-with-excess [cities]
-  (filter #(> (:current-stock %) (:min-capacity %)) cities))
+;; Function to plan Day 2 routes ensuring Innsbruck has 10 units of stock
+(defn plan-day-2-routes [cities truck-capacity truck-count]
+  (let [innsbruck (first (filter #(= (:name %) "Innsbruck") cities))
+        excess-stock (- (:current-stock innsbruck) 10)
+        needs-supply (->> cities
+                          (filter #(and (> (:min-capacity %) (:current-stock %))
+                                        (not= (:name %) "Innsbruck")))
+                          (sort-by #(get-distance "Innsbruck" (:name %))))] ;; Prioritize closest cities
+    (loop [remaining-needs needs-supply
+           routes []
+           updated-cities cities
+           excess-stock excess-stock
+           trucks-left truck-count]
+      (if (and (seq remaining-needs) (> excess-stock 0) (> trucks-left 0))
+        (let [dest (first remaining-needs)
+              needed-stock (- (:min-capacity dest) (:current-stock dest))
+              transfer-amount (min truck-capacity excess-stock needed-stock)
+              route {:truck (- truck-count trucks-left -1)
+                     :from "Innsbruck"
+                     :to (:name dest)
+                     :amount transfer-amount
+                     :distance (get-distance "Innsbruck" (:name dest))}
+              new-updated-cities (map #(cond
+                                         (= (:name %) "Innsbruck") (update % :current-stock - transfer-amount)
+                                         (= (:name %) (:name dest)) (update % :current-stock + transfer-amount)
+                                         :else %)
+                                      updated-cities)]
+          (recur (rest remaining-needs)
+                 (conj routes route)
+                 new-updated-cities
+                 (- excess-stock transfer-amount)
+                 (dec trucks-left)))
+        {:routes routes :updated-cities updated-cities}))))
 
-;; Function to transport cans from source to destination with driver confirmation
-(defn transport-cans [source dest amount truck-id]
-  (let [actual-amount (min amount (- (:max-capacity dest) (:current-stock dest)))]
-    ;; Confirmation message
-    (println "Truck" truck-id "confirmation: Delivering" actual-amount "cans from" (:name source) "to" (:name dest))
-    [(assoc source :current-stock (- (:current-stock source) actual-amount))
-     (assoc dest :current-stock (+ (:current-stock dest) actual-amount))]))
+;; Function to print city stocks
+(defn print-city-stocks [cities]
+  (println "Current city stocks:")
+  (doseq [city cities]
+    (println (:name city) "- Stock:" (:current-stock city))))
 
-;; Simulate one truck trip (updated to deliver to specific cities each day)
-(defn move-truck [cities truck-id]
-  (let [needs-supply (cities-needing-supply cities)
-        has-excess (cities-with-excess cities)]
-    (if (seq needs-supply)
-      (let [dest (first needs-supply)
-            source (if (= truck-id 1) (first has-excess) (nth has-excess 1))
-            [updated-source updated-dest] (transport-cans source dest truck-capacity truck-id)]
-        (map #(cond
-                (= (:name %) (:name source)) updated-source
-                (= (:name %) (:name dest)) updated-dest
-                :else %) cities))
-      cities)))
+;; Simulate a day of trading
+(defn simulate-day [cities day truck-capacity truck-count plan-routes-fn]
+  (println "\nDay" day "Simulation:")
+  (let [{:keys [routes updated-cities]} (plan-routes-fn cities truck-capacity truck-count)]
+    (if (empty? routes)
+      (println "No deliveries required.")
+      (doseq [route routes]
+        (println "Truck" (:truck route) "delivers" (:amount route) "units from" (:from route) "to" (:to route) "covering" (:distance route) "km")))
+    (print-city-stocks updated-cities)
+    updated-cities))
 
-;; Check if all cities meet their stock requirements
-(defn all-cities-satisfied? [cities]
-  (every? #(>= (:current-stock %) (:min-capacity %)) cities))
-
-;; Universal simulation loop (updated strategy)
-(defn simulate-truck-trips [cities]
-  (loop [current-cities cities
-         trip-number 1
-         truck-id 1]
-    ;; Check if all cities have required stock 
-    (if (all-cities-satisfied? current-cities)
-      current-cities
-      (let [updated-cities (move-truck current-cities truck-id)
-            next-truck-id (if (= truck-id 1) 2 1)]
-        ;; Print stock levels after each trip
-        (println "\nStock levels after trip" trip-number ":")
-        (doseq [city updated-cities]
-          (println (:name city) "- Stock:" (:current-stock city)))
-        ;; Recur with updated cities, incremented trip number, and alternate truck ID
-        (recur updated-cities (inc trip-number) next-truck-id)))))
-
-;; Running the simulation for the updated strategy
-(defn -main []
-  (let [final-cities (simulate-truck-trips cities)]
-    (println "\nFinal city stocks after simulation:")
-    (doseq [city final-cities]
+;; Simulate all trading days
+(defn simulate-trading-days [cities]
+  (let [truck-capacity 100
+        truck-count 2
+        ;; Day 1: Regular logic
+        day1 (simulate-day cities 1 truck-capacity truck-count
+                           (fn [cities truck-capacity truck-count]
+                             (let [needs-supply (->> cities
+                                                     (filter #(> (:min-capacity %) (:current-stock %)))
+                                                     (sort-by #(get-distance "Munich" (:name %))))]
+                               (loop [remaining-needs needs-supply
+                                      routes []
+                                      updated-cities cities
+                                      trucks-left truck-count]
+                                 (if (and (seq remaining-needs) (> trucks-left 0))
+                                   (let [dest (first remaining-needs)
+                                         needed-stock (- (:min-capacity dest) (:current-stock dest))
+                                         source (first (filter #(= (:name %) "Munich") updated-cities))
+                                         available-stock (:current-stock source)
+                                         transfer-amount (min truck-capacity needed-stock available-stock)
+                                         route {:truck (- truck-count trucks-left -1)
+                                                :from "Munich"
+                                                :to (:name dest)
+                                                :amount transfer-amount
+                                                :distance (get-distance "Munich" (:name dest))}
+                                         new-updated-cities (map #(cond
+                                                                    (= (:name %) "Munich") (update % :current-stock - transfer-amount)
+                                                                    (= (:name %) (:name dest)) (update % :current-stock + transfer-amount)
+                                                                    :else %)
+                                                                 updated-cities)]
+                                     (recur (rest remaining-needs)
+                                            (conj routes route)
+                                            new-updated-cities
+                                            (dec trucks-left)))
+                                   {:routes routes :updated-cities updated-cities})))))
+        ;; Day 2: Ensure Innsbruck ends with 10 units of stock
+        day2 (simulate-day day1 2 truck-capacity truck-count plan-day-2-routes)
+        ;; Day 3: Regular logic
+        day3 (simulate-day day2 3 truck-capacity truck-count
+                           (fn [cities capacity count]
+                             (plan-day-2-routes cities capacity count)))]
+    (println "\nFinal city stocks:")
+    (doseq [city day3]
       (println (:name city) "- Stock:" (:current-stock city)))))
 
-;; Running the main function
+;; Run the simulation
+(defn -main []
+  (simulate-trading-days cities))
+
 (-main)
