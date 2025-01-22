@@ -61,6 +61,40 @@
                  (dec trucks-left)))
         {:routes routes :updated-cities updated-cities}))))
 
+;; Function to plan Day 3 routes ensuring Krakow has 30 units of stock
+(defn plan-day-3-routes [cities truck-capacity truck-count]
+  (let [krakov (first (filter #(= (:name %) "Krakov") cities))
+        excess-stock (- (:current-stock krakov) 30)
+        needs-supply (->> cities
+                          (filter #(and (> (:min-capacity %) (:current-stock %))
+                                        (not= (:name %) "Krakov")))
+                          (sort-by #(get-distance "Krakov" (:name %))))] ;; Prioritize closest cities
+    (loop [remaining-needs needs-supply
+           routes []
+           updated-cities cities
+           excess-stock excess-stock
+           trucks-left truck-count]
+      (if (and (seq remaining-needs) (> excess-stock 0) (> trucks-left 0))
+        (let [dest (first remaining-needs)
+              needed-stock (- (:min-capacity dest) (:current-stock dest))
+              transfer-amount (min truck-capacity excess-stock needed-stock)
+              route {:truck (- truck-count trucks-left -1)
+                     :from "Krakov"
+                     :to (:name dest)
+                     :amount transfer-amount
+                     :distance (get-distance "Krakov" (:name dest))}
+              new-updated-cities (map #(cond
+                                         (= (:name %) "Krakov") (update % :current-stock - transfer-amount)
+                                         (= (:name %) (:name dest)) (update % :current-stock + transfer-amount)
+                                         :else %)
+                                      updated-cities)]
+          (recur (rest remaining-needs)
+                 (conj routes route)
+                 new-updated-cities
+                 (- excess-stock transfer-amount)
+                 (dec trucks-left)))
+        {:routes routes :updated-cities updated-cities}))))
+
 ;; Function to print city stocks
 (defn print-city-stocks [cities]
   (println "Current city stocks:")
@@ -115,10 +149,8 @@
                                    {:routes routes :updated-cities updated-cities})))))
         ;; Day 2: Ensure Innsbruck ends with 10 units of stock
         day2 (simulate-day day1 2 truck-capacity truck-count plan-day-2-routes)
-        ;; Day 3: Regular logic
-        day3 (simulate-day day2 3 truck-capacity truck-count
-                           (fn [cities capacity count]
-                             (plan-day-2-routes cities capacity count)))]
+        ;; Day 3: Ensure Krakow ends with 30 units of stock
+        day3 (simulate-day day2 3 truck-capacity truck-count plan-day-3-routes)]
     (println "\nFinal city stocks:")
     (doseq [city day3]
       (println (:name city) "- Stock:" (:current-stock city)))))
