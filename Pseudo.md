@@ -1,13 +1,9 @@
 PSEUDO CODE
 
-Define cities with initial values, capacities, and requirements
-
-functions to determine inventory status
-
-Function for Finding cities needing inventory and those with a surplus
-
-Function for planning routes from surplus cities to cities with needs
-
-Function for displaying planned routes
-
-Function for Main function to run the program
+- Define cities
+- Functions to determine inventory status
+- Function for finding cities needing inventory and those with a surplus
+- Function for planning routes from surplus cities to cities with needs
+- Function for displaying planned routes
+- Functions for specific day-by-day logic
+- Function for main simulation loop
